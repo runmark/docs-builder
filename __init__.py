@@ -11,7 +11,7 @@ def main():
     argv = sys.argv
     if len(argv) != 2:
         proj.usage()
-        sys.exit(1)
+        sys.exit(0)
 
     target_name = argv[1]
     proj.run(target_name)
