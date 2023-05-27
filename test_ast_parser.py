@@ -1,6 +1,8 @@
 import os
 from unittest import TestCase
 
+from ast_parser import parse_file
+
 
 class ParserTest(TestCase):
     def test_parse_install(self):
