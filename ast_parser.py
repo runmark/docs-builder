@@ -8,7 +8,7 @@ def parse_file(file_path) -> AstDoc:
     name = os.path.splitext(os.path.basename(file_path))[0]
 
     with open(file_path, "r") as fd:
-        lines = [x.rstrip() for x in fd.readlines()]
+        lines = [x.rstrip() for x in fd.readlines() if x.strip()]
         doc = parse(name, lines)
     return doc
 
@@ -48,7 +48,7 @@ def parse_toctree(items):
         return next((index for index, x in enumerate(items) if predicate(x)), -1)
 
     def is_toctree_start(x):
-        return isinstance(x, str) and x.strip() == ".. totree::"
+        return isinstance(x, str) and x.strip() == ".. toctree::"
 
     def is_toctree_end(x):
         return isinstance(x, AstNode) or (
@@ -57,13 +57,13 @@ def parse_toctree(items):
 
     start = find_index(items, is_toctree_start)
     if start < 0:
-        # yield items
         for item in items:
             yield item
-        # return items
+        # yield items  # TODO different from above two lines
+        # return items # TODO why cannot use return
     else:
-        end = find_index(items[start:+1], is_toctree_end)
-        end += start + 1
+        end = find_index(items[start + 1 :], is_toctree_end)
+        end = start + end + 1 if end >= 0 else len(items)
 
         for i in range(start):
             yield items[i]
@@ -74,7 +74,7 @@ def parse_toctree(items):
                 toctree.append_child(AstNode("toc", items[i].strip()))
         yield toctree
 
-        for i in range(end + 1, len(items)):
+        for i in range(end, len(items)):
             yield items[i]
 
 
@@ -85,10 +85,12 @@ def parse_paragraphs(items):
         elif isinstance(item, str) and item.strip():
             p = AstNode("p")
 
-            for part in item.split(r":doc:`.+`", item):
+            for part in re.split(
+                r"(:doc:`.+`)", item.strip()
+            ):  # TODO re.split != str.split and parentheses's function
                 m = re.match(r":doc:`(.+)`", part)
                 if m:
                     p.append_child(AstNode("a", m.group(1)))
                 else:
-                    p.append_child(AstNode("text", parse))
+                    p.append_child(AstNode("text", part))
             yield p
