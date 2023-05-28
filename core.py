@@ -1,4 +1,5 @@
 import os
+import typing
 
 
 class BuildContext:
@@ -102,27 +103,33 @@ class Link(Task):
 
 class AstNode:
     def __init__(self, name, data=None):
-        self._name = name
-        self._data = data
-        self._children = None
+        self.name = name
+        self.data = data
+        self.children = None
 
     def append_child(self, child):
-        self._children = self._children or []
-        self._children.append(child)
+        self.children = self.children or []
+        self.children.append(child)
 
     def ast_string(self, depth: int):
         indent = " " * (depth * 2)
-        result = f"{indent}{self._name}"
-        if self._data:
-            result += f"({self._data})"
+        result = f"{indent}{self.name}"
+        if self.data:
+            result += f"({self.data})"
         return result
 
     def iter(self, depth: int):
         yield depth, self
-        for child in self._children or []:
+        for child in self.children or []:
             for descendant in child.iter(depth + 1):
                 yield descendant
-            # yield child.iter(depth + 1)
+            # TODO why `yield child.iter(depth + 1)` is wrong?
+
+    def header_level(self):
+        header_marks = ("h1", "h2", "h3", "h4", "h5", "h6")
+        if self.name in header_marks:
+            return int(self.name[1:])
+        return 0
 
 
 class AstDoc(AstNode):
@@ -131,6 +138,28 @@ class AstDoc(AstNode):
 
     def dump_ast(self):
         return "\n".join([node.ast_string(depth) for depth, node in self.iter(depth=0)])
+
+    def title(self) -> str:
+        def find_first(items, predicate):
+            return next((x for x in items if predicate(x)), None)
+
+        h1 = find_first(self.iter(0), lambda x: x[1].name == "h1")
+        return h1[1]._data if h1 is not None else "Untitled"
+
+    def headers(self) -> typing.List:
+        return [node for _, node in self.iter(0) if node.header_level() > 0]
+
+
+class Code:
+    def __init__(self, name):
+        self.name = name
+        self.title = None
+        self.html = []
+        self.toctree = []
+        self.dependencies = set()
+
+    def add_toctree(self, *args):
+        self.toctree.extend(args)
 
 
 if __name__ == "__main__":
