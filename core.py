@@ -4,7 +4,7 @@ import typing
 
 
 class BuildContext:
-    def __init__(self, base_dir):
+    def __init__(self, base_dir, cache_name=None):
         self.src_dir = os.path.join(base_dir, "src")
         self.cache_dir = os.path.join(base_dir, "cache")
         self.build_dir = os.path.join(base_dir, "build")
@@ -12,6 +12,7 @@ class BuildContext:
         self.link_tasks = []
         self.executed_tasks = []
         self.cache = CacheFile(os.path.join(self.cache_dir, "compile.cache"))
+        self.cache_name = cache_name or "compile.cache"
 
     def add_compile_task(self, task):
         self.compile_tasks.append(task)
@@ -29,6 +30,12 @@ class BuildContext:
         while task_list:
             for task in task_list[:]:
                 self.execute_task(task_list, task)
+
+    def get_title(self, name):
+        return self.cache.get_code("title", name)
+
+    def get_toctree(self, name):
+        return self.cache.get_code("toctree", name)
 
 
 class Task:
@@ -183,36 +190,49 @@ class Code:
     def add_dependency(self, kind, name):
         self.dependencies.add((kind, name))
 
+    def write_cache(self, cache):
+        cache.set_dependencies(self.name, self.dependencies)
+        cache.set_code("doc", self.name, self.html)
+        cache.set_code("title", self.name, self.title)
+        cache.set_code("toctree", self.name, self.toctree)
+
 
 class CacheFile:
     def __init__(self, path):
         self.path = path
-        self._data = {"output": {}, "input": {}}
-        if os.path.exists(self.path):
+        self._data = {"dependencies": {}, "code": {}}
+        if os.path.exists(path):
             self.load()
 
+    def purge(self):
+        if os.path.exists(self.path):
+            os.unlink(self.path)
+        self._data = {"dependencies": {}, "code": {}}
+
     def load(self):
-        with open(self.path, "rb") as fd:
-            self._data = pickle.load(fd)
+        """Load from file"""
+        with open(self.path, "rb") as f:
+            self._data = pickle.load(f)
 
     def save(self):
+        """Save to file"""
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        with open(self.path, "wb") as fd:
-            pickle.dump(self._data, fd)
+        with open(self.path, "wb") as f:
+            pickle.dump(self._data, f)
 
-    def set_output(self, name, value):
-        self._data["output"][name] = value
+    def set_dependencies(self, name, value):
+        self._data["dependencies"][name] = value
 
-    def get_output(self, name):
-        return self._data["output"][name]
+    def get_dependencies(self, name):
+        return self._data["dependencies"][name]
 
-    def set_input(self, kind, name, data):
+    def set_code(self, kind, name, data):
         key = (kind, name)
-        self._data["input"][key] = data
+        self._data["code"][key] = data
 
-    def get_input(self, kind, name):
+    def get_code(self, kind, name):
         key = (kind, name)
-        return self._data["input"][key]
+        return self._data["code"][key]
 
 
 if __name__ == "__main__":
